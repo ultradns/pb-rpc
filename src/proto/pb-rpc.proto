@@ -1,0 +1,89 @@
+//
+// Copyright 2000-2011 NeuStar, Inc. All rights reserved.
+// NeuStar, the Neustar logo and related names and logos are registered
+// trademarks, service marks or tradenames of NeuStar, Inc. All other 
+// product names, company names, marks, logos and symbols may be trademarks
+// of their respective owners.  
+//
+
+
+package pbrpc;
+option java_package = "biz.neustar.ultra.pbrpc.generated";
+option java_outer_classname = "RpcMessage";
+
+
+message RpcRequest {
+    optional sint64 request_id = 1;// unique this request / response pair
+    optional string caller_id = 2; // id for the caller
+    optional string service_id = 3; // id of the service being contacted
+    optional sint64 trace_id = 4; // tracing id specified by caller
+    optional string method_name = 5; // method name
+    optional RpcPayload payload = 6; // payload of the message
+}
+
+message RpcResponse {
+    optional sint64 request_id = 1; // unique this request / response pair
+    optional sint64 trace_id = 2; // request tracing id returned 
+    optional RpcError error = 3; // populated only if there was some kind of error
+    optional RpcPayload payload = 4; // payload of the reponse, will not be populated if there is an error.
+}
+
+
+message RpcPayload {
+  optional sint64 crc = 1; // crc of the data
+  optional bytes data = 2; 
+}
+
+// Describes an error that caused an RPC call to fail.
+message RpcError {
+  enum Type {
+    // Unknown error.  Should not normally be sent.  Note, though, that if a
+    // new value is added to this enum and then sent to an old program that
+    // doesn't recognize that value, then |type| will act as if it wasn't set,
+    // so will have its default value of UNKNOWN_ERROR.
+    UNKNOWN_ERROR           = 0;
+
+    // The request sent by the client was malformed, suggesting the client app
+    // has a programming error.  Sending again is unlikely to help.
+    BAD_REQUEST             = 1;
+
+    // The connection is not secure enough for the request.
+    INSUFFICIENT_SECURITY   = 2;
+
+    // The callee was unable to honor the call's prerequisites as defined by
+    // prerequisite_request_id, possibly because one or more of them failed, or
+    // possibly because the server does not implement prerequisite handling,
+    // or perhaps for some other reason.  In any case, the caller should wait
+    // for the prerequisites to complete and then retry its call without
+    // prerequisites, if it still makes sense to do so.
+// not supported yet    PREREQUISITE_FAILED     = 3;
+
+    // The call failed for a transient reason before it could be delivered.
+    // Retrying is safe and may work.
+    NOT_DELIVERED           = 4;
+
+    // The call failed after being delivered, e.g. because the server threw a
+    // RuntimeException.
+    SERVER_ERROR            = 5;
+
+    // The call was not delivered because the server is overloaded.  Although
+    // retrying could work, it could also make the situation worse by increasing
+    // load.
+    OVERLOADED              = 6;
+
+    // The application (i.e. the service implementation, not the RPC system)
+    // reported an error, e.g. by throwing a ServiceException.  In this case
+    // the error string comes directly from the application itself.
+    APPLICATION_ERROR       = 7;
+
+    // The call was not completed because the caller sent a CancelCall.
+    CANCELED                = 8;
+  }
+
+  // One of the types defined above.
+  optional Type type = 1 [default=UNKNOWN_ERROR];
+
+  // Human-readable error message.
+  optional string message = 2;
+}
+
