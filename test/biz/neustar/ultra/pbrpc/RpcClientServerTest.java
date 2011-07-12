@@ -6,7 +6,7 @@
  * of their respective owners.
  */
 
-package biz.neustar.ultra.pb-rpc;
+package biz.neustar.ultra.pbrpc;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -20,9 +20,11 @@ import org.jboss.netty.channel.local.LocalAddress;
 import org.junit.Before;
 import org.junit.Test;
 
-import biz.neustar.ultra.service.ZoneSearchCriteriaMessage.ZoneSearchCriteria;
-import biz.neustar.ultra.service.zvs.GetZonesRequestMessage.GetZonesRequest;
-import biz.neustar.ultra.service.zvs.GetZonesResponseMessage.GetZonesResponse;
+import biz.neustar.ultra.service.example.ExampleRequestMessage.ExampleRequest;
+import biz.neustar.ultra.service.example.ExampleRequestMessage.NestedItem;
+import biz.neustar.ultra.service.example.ExampleResponseMessage.ExampleResponse;
+import biz.neustar.ultra.service.example.ExampleServiceMessage.ExampleService;
+
 
 import static org.junit.Assert.*;
 
@@ -38,7 +40,7 @@ public class RpcClientServerTest {
 		final RpcServer rpcServer = new RpcServer(serverAddresses);
 		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
 		
-		rpcServer.registerService(new ZVSImpl());
+		rpcServer.registerService(new ExampleServiceImpl());
 	
 		rpcServer.start();
 		Thread.sleep(100);
@@ -47,17 +49,19 @@ public class RpcClientServerTest {
 				new DefaultLocalClientChannelFactory(), address);
 		
 		/* */
-		biz.neustar.ultra.service.zvs.ZoneVersionServiceMessage.ZoneVersionService.Stub zvsClient = 
-			biz.neustar.ultra.service.zvs.ZoneVersionServiceMessage.ZoneVersionService.newStub(rpcClient);
+		ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
 		
-		GetZonesRequest.Builder req = GetZonesRequest.newBuilder();
-		ZoneSearchCriteria.Builder srchCriteria = ZoneSearchCriteria.newBuilder();
+		ExampleRequest.Builder req = ExampleRequest.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
 		String testId = "TESTING";
-		srchCriteria.setAccountId(testId);
-		req.setCriteria(srchCriteria);
-		Future<GetZonesResponse> resp = zvsClient.getZones(req.build());
-		assertEquals(1, resp.get().getZoneCount());
-		assertEquals(testId, resp.get().getZone(0).getAccountId());
+		item.setValue(testId);
+		req.setItem(item);
+		String something = "nothing";
+		req.setSomething(something);
+		
+		Future<ExampleResponse> resp = exClient.getSomething(req.build());
+		assertEquals(something + testId, resp.get().getItem());
 		/* */
 		
 		rpcClient.shutdown();

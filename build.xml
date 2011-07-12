@@ -58,9 +58,10 @@
   </target>
 
 
-  <target name="proto-compile" depends="init">
+  <target name="proto-compile" depends="plugin-compile">
     <exec executable="${protoc}">
-      <arg line="--java_out=${generated.dir} -I${src.dir}/proto ${src.dir}/proto/pb-rpc.proto"/>
+      <env key="PATH" path="${env.PATH}:${plugin.dir}"/>
+      <arg line="--java_out=${generated.dir} --java-pb-rpc_out=${generated.dir} -I${src.dir}/proto ${src.dir}/proto/pb-rpc.proto"/>
     </exec>
   </target>
 
@@ -75,17 +76,18 @@
   </target>
 
 
-  <target name="proto-compile-tests" depends="init">
+  <target name="proto-compile-tests" depends="plugin-compile">
     <fileset id="protoslist" dir="${test.dir}/proto">
         <include name="*.proto" />
     </fileset>
     <pathconvert property="protos" refid="protoslist" pathsep=" " />
     <exec executable="${protoc}">
-      <arg line="--java_out=${test.dir} -I${test.dir}/proto ${protos}"/>
+      <env key="PATH" path="${env.PATH}:${plugin.dir}"/>
+      <arg line="--java_out=${test.dir} --java-pb-rpc_out=${test.dir} -I${test.dir}/proto ${protos}"/>
     </exec>
   </target>
 
-  <target name="compile-tests" depends="compile">
+  <target name="compile-tests" depends="compile,proto-compile-tests">
     <javac debug="yes" destdir="${test.build.dir}" srcdir="${test.dir}" includeantruntime="false">
       <include name="**/*.java" />
       <classpath>
