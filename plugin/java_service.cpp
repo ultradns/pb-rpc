@@ -65,7 +65,7 @@ void ServiceGenerator::Generate(io::Printer* printer) {
   bool is_own_file = descriptor_->file()->options().java_multiple_files();
   printer->Print(
     "public $static$ abstract class $classname$\n"
-    "    implements biz.neustar.ultra.pb-rpc.Service {\n",
+    "    implements biz.neustar.ultra.pbrpc.Service {\n",
     "static", is_own_file ? "" : "static",
     "classname", descriptor_->name());
   printer->Indent();
@@ -234,7 +234,7 @@ void ServiceGenerator::GenerateNonBlockingInterface(io::Printer* printer) {
 void ServiceGenerator::GenerateStub(io::Printer* printer) {
   printer->Print(
     "public static Stub newStub(\n"
-    "    biz.neustar.ultra.pb-rpc.RpcClient client) {\n"
+    "    biz.neustar.ultra.pbrpc.RpcClient client) {\n"
     "  return new Stub(client);\n"
     "}\n"
     "\n"
@@ -246,13 +246,13 @@ void ServiceGenerator::GenerateStub(io::Printer* printer) {
   printer->Indent();
 
   printer->Print(
-    "private Stub(biz.neustar.ultra.pb-rpc.RpcClient client) {\n"
+    "private Stub(biz.neustar.ultra.pbrpc.RpcClient client) {\n"
     "  this.client = client;\n"
     "}\n"
     "\n"
-    "private final biz.neustar.ultra.pb-rpc.RpcClient client;\n"
+    "private final biz.neustar.ultra.pbrpc.RpcClient client;\n"
     "\n"
-    "public biz.neustar.ultra.pb-rpc.RpcClient getClient() {\n"
+    "public biz.neustar.ultra.pbrpc.RpcClient getClient() {\n"
     "  return client;\n"
     "}\n");
 
