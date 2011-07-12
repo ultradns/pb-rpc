@@ -1,0 +1,40 @@
+<configuration scan="true">
+
+  <appender name="HIBERNATE" class="ch.qos.logback.core.FileAppender">
+      <file>hibernate.log</file>
+      <encoder>
+          <pattern>%d{dd MMM yyyy HH:mm:ss.SSS} %5level [%thread] [%logger{0}] %msg%n</pattern>
+      </encoder>
+  </appender>
+
+  <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+    <file>pb-rpc.log</file>
+    <encoder>
+      <pattern>%date %level [%thread] %logger{10} [%file:%line] %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="SYSLOG" class="ch.qos.logback.classic.net.SyslogAppender">
+    <SyslogHost>127.0.0.1</SyslogHost>
+   <!-- <Port>xxx</Port>  -->
+    <Facility>LOCAL6</Facility>
+    <SuffixPattern>[%thread] %logger{10} [%file:%line] %msg%n</SuffixPattern>
+  </appender>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%level %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="org.hibernate" level="ERROR">
+    <appender-ref ref="HIBERNATE" />
+  </logger>
+
+  <root level="DEBUG">
+    <appender-ref ref="STDOUT" />
+    <appender-ref ref="FILE" />
+    <!--<appender-ref ref="SYSLOG" />-->
+  </root>
+</configuration>
+

@@ -1,0 +1,40 @@
+<configuration scan="true" scanPeriod="30 seconds">
+  <jmxConfigurator />
+
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>/var/log/pb-rpc/pb-rpc.log</file>
+    <encoder>
+      <pattern>%date %level [%thread] %logger{5} %msg%n</pattern>
+    </encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- rollover daily -->
+      <fileNamePattern>/var/log/pb-rpc/pb-rpc_app-%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+      <!-- 10 days of history -->
+      <maxHistory>10</maxHistory> 
+      <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+        <!-- or whenever the file size reaches 100MB -->
+        <maxFileSize>100MB</maxFileSize>
+      </timeBasedFileNamingAndTriggeringPolicy>
+    </rollingPolicy>    
+  </appender>
+    
+
+  <appender name="SYSLOG" class="ch.qos.logback.classic.net.SyslogAppender">
+    <SyslogHost>127.0.0.1</SyslogHost>
+    <Port>514</Port>
+    <Facility>LOCAL4</Facility>
+    <SuffixPattern>[%thread] %logger{5} %msg%n</SuffixPattern>
+  </appender>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%date %level [%thread] %logger{10} [%file:%line] %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="ERROR">
+    <appender-ref ref="FILE" />
+    <appender-ref ref="SYSLOG"/>
+  </root>
+</configuration>
+

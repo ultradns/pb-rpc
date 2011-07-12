@@ -1,0 +1,50 @@
+<ivy-module version="2.0">
+    <info organisation="biz.neustar.ultra" module="pb-rpc"/>
+    <configurations defaultconfmapping="default->default">
+      <conf name="default" visibility="private" />
+      <conf name="compile" transitive="true" visibility="private" />
+      <conf name="runtime" extends="compile" description="everything needed to run this module" />
+      <conf name="test" extends="runtime" transitive="true" visibility="private" />
+    </configurations>
+    
+    <dependencies defaultconf="default">
+        <!-- testing, you need these, really -->
+        <dependency org="junit" force="true" name="junit" rev="4.8.2" conf="test->default"/>
+        <dependency org="org.mockito" name="mockito-all" rev="1.8.5" conf="test->default"/>
+        <dependency org="emma" force="true" name="emma" rev="2.0.5312" conf="test->default"/>
+        <dependency org="emma" force="true" name="emma_ant" rev="2.0.5312" conf="test->default"/>
+        <dependency org="pmd" name="pmd" rev="4.2.5" conf="test->default"/>
+
+<!-- protobuf -->
+        <dependency org="com.google.protobuf" name="protobuf-java" rev="2.4.1" conf="compile->default"/>
+        <dependency org="com.google.protobuf" name="protobuf-java-format" rev="1.1" conf="compile->default"/>
+
+        <!-- apache common commons -->
+
+<!--
+        <dependency org="commons-lang" name="commons-lang" rev="2.5" conf="compile->default"/>
+        <dependency org="commons-cli" name="commons-cli" rev="1.2" conf="compile->default"/>
+        <dependency org="commons-collections" name="commons-collections" rev="3.2.1" conf="compile->default"/>
+        <dependency org="commons-codec" name="commons-codec" rev="1.4" conf="compile->default"/>
+        <dependency org="commons-configuration" name="commons-configuration" rev="1.6" conf="compile->default"/>
+-->
+
+<!-- netty -->
+        <dependency org="org.jboss.netty" name="netty" rev="3.2.4.Final" conf="compile->default"/>
+
+        <!-- logging -->
+        <dependency org="org.slf4j" name="slf4j-api" rev="1.6.1" conf="compile->default"/>
+        <dependency org="org.slf4j" name="slf4j-ext" rev="1.6.1" conf="compile->default"/>
+
+        <dependency org="org.slf4j" name="jcl-over-slf4j" rev="1.6.1" conf="test->default"/>
+        <dependency org="org.slf4j" name="jul-to-slf4j" rev="1.6.1" conf="test->default"/>
+        <dependency org="org.slf4j" name="log4j-over-slf4j" rev="1.6.1" conf="test->default"/>
+
+        <dependency org="ch.qos.logback" name="logback-core" rev="0.9.28" conf="test->default"/>
+        <dependency org="ch.qos.logback" name="logback-classic" rev="0.9.28" conf="test->default"/>
+
+
+        <exclude module="ant"/>
+        <exclude module="commons-logging"/>
+    </dependencies>
+</ivy-module>

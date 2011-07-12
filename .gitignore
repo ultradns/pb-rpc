@@ -1,0 +1,12 @@
+plugin/protoc-gen-cpp-pb-rpc
+plugin/protoc-gen-java-pb-rpc
+plugin/protoc-gen-py-pb-rpc
+*.o
+.classpath
+.project
+*.log
+src/biz/neustar/ultra/pbrpc/generated/*
+lib/test
+lib/runtime
+lib/compile
+eclipse-build
