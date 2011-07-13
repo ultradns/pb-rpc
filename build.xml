@@ -93,6 +93,7 @@
       <classpath>
         <path refid="test.classpath"/>
         <pathelement location="${config.dir}" />
+        <pathelement location="${build.dir}" />
       </classpath>
     </javac>
   </target>
@@ -126,7 +127,6 @@
   
   <target name="test" depends="compile-tests">
     <test-units/>
-    <test-stories />
   </target>
 
 
