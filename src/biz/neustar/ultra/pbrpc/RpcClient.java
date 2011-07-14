@@ -8,28 +8,15 @@
 
 package biz.neustar.ultra.pbrpc;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.util.concurrent.Executors;
-
-import org.jboss.netty.bootstrap.ClientBootstrap;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFactory;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import java.util.concurrent.Future;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-public class RpcClient {
-	private String callerId = null;
-	private volatile Channel channel;
-	private volatile ClientBootstrap bootstrap;
-	private RpcClientHandler handler;
-	private ChannelFactory clientChannelFactory = new NioClientSocketChannelFactory(
-            Executors.newCachedThreadPool(), Executors.newCachedThreadPool());
 
-	
+public abstract class RpcClient {
+	private String callerId = null;
+		
 	public RpcClient() {
 	}
 	
@@ -37,46 +24,18 @@ public class RpcClient {
 		this.callerId = callerId;
 	}
 	
-	public void setChannelFactory(ChannelFactory clientChannelFactory) {
-		this.clientChannelFactory = clientChannelFactory;
+	public String getCallerId() {
+		return callerId;
 	}
 	
+	public abstract void shutdown();
 	
-	public void start(String host, int port) {
-		start(new InetSocketAddress(host, port));
-	}
+	public abstract <T extends Message> Future<T> call(final Descriptors.MethodDescriptor method, 
+			final Message request,
+            final T responsePrototype);
 	
-	public void start(SocketAddress address) {
-		// Set up.
-        bootstrap = new ClientBootstrap(clientChannelFactory);
-
-        // Configure the event pipeline factory.
-        bootstrap.setPipelineFactory(new ProtobufClientPipelineFactory());
-
-        // Make a new connection.	
-        ChannelFuture connectFuture = bootstrap.connect(address);
-
-        // Wait until the connection is made successfully.
-        channel = connectFuture.awaitUninterruptibly().getChannel();
-        if (!connectFuture.isSuccess()) {
-        	throw new RuntimeException(connectFuture.getCause());
-        }
-
-        // Get the handler instance to initiate the request.
-        handler = channel.getPipeline().get(RpcClientHandler.class);
-        handler.setCallerId(callerId);
-	}
-	
-	
-	public void shutdown() {
-		// Close the connection.
-        channel.close().awaitUninterruptibly();
-
-        // Shut down all thread pools to exit.
-        bootstrap.releaseExternalResources();
-	}
-	
-	public RpcClientHandler getClientHandler() {
-		return handler;
-	}
+	public abstract <T extends Message> void call(final Descriptors.MethodDescriptor method, 
+			final Message request,
+            final T responsePrototype,
+            final com.google.protobuf.RpcCallback<T> done);
 }

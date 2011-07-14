@@ -19,6 +19,16 @@ import com.google.protobuf.RpcCallback;
 public class FutureCallback<T> implements Future<T>, RpcCallback<T> {
 	private volatile boolean done = false;
 	private ArrayBlockingQueue<T> value = new ArrayBlockingQueue<T>(1);
+	private volatile ExecutionException executionException = null;
+	
+	public void setExecutionException(ExecutionException executionException) {
+		if (executionException != null) {
+			this.executionException = executionException;
+			if (value.isEmpty()) {
+				run(null); // release anyone waiting
+			}
+		}
+	}
 	
 	@Override
 	public void run(T parameter) {
@@ -40,12 +50,21 @@ public class FutureCallback<T> implements Future<T>, RpcCallback<T> {
 	public boolean isDone() {
 		return done;
 	}
+	
+	protected void checkForExecException() throws ExecutionException {
+		ExecutionException execException = executionException;
+		if (execException != null) {
+			throw execException;
+		}
+	}
 
 	@Override
 	public T get() throws InterruptedException, ExecutionException {
+		checkForExecException();
 		synchronized(this) {
 			T val = value.take();
 			value.offer(val);
+			checkForExecException();
 			return val;
 		}
 	}
@@ -56,9 +75,11 @@ public class FutureCallback<T> implements Future<T>, RpcCallback<T> {
 	@Override
 	public T get(long timeout, TimeUnit unit) 
 			throws InterruptedException, ExecutionException, TimeoutException {
+		checkForExecException();
 		synchronized(this) {
 			T val = value.poll(timeout, unit);
 			value.offer(val);
+			checkForExecException();
 			return val;
 		}
 	}

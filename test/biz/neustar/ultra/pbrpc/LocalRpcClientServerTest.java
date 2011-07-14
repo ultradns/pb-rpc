@@ -25,25 +25,19 @@ import biz.neustar.ultra.service.example.ExampleRequestMessage.NestedItem;
 import biz.neustar.ultra.service.example.ExampleResponseMessage.ExampleResponse;
 import biz.neustar.ultra.service.example.ExampleServiceMessage.ExampleService;
 
-public class RpcClientServerTest {
+public class LocalRpcClientServerTest {
 
 
 	@Test
 	public void testClientServerPath() throws InterruptedException, ExecutionException {
 		ArrayList<SocketAddress> serverAddresses = new ArrayList<SocketAddress>();
 		
-		LocalAddress address = new LocalAddress("1");
-		serverAddresses.add(address);
-		final RpcServer rpcServer = new RpcServer(serverAddresses);
-		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
-		
+		final LocalRpcServer rpcServer = new LocalRpcServer();
 		rpcServer.registerService(new ExampleServiceImpl());
 	
 		rpcServer.start();
-		Thread.sleep(100);
 		
-		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
-				new DefaultLocalClientChannelFactory(), address);
+		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createLocalRpcClient(rpcServer);
 		
 		/* */
 		ExampleService.Stub exClient = ExampleService.newStub(rpcClient);

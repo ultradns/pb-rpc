@@ -269,7 +269,7 @@ void ServiceGenerator::GenerateStub(io::Printer* printer) {
       vars["index"] = SimpleItoa(i);
       vars["output"] = ClassName(method->output_type());
       printer->Print(vars,
-        "client.getClientHandler().callMethod(\n"
+        "client.call(\n"
         "  getDescriptor().getMethods().get($index$),\n"
         "  request,\n"
         "  $output$.getDefaultInstance(),\n"
@@ -289,7 +289,7 @@ void ServiceGenerator::GenerateStub(io::Printer* printer) {
       vars["index"] = SimpleItoa(i);
       vars["output"] = ClassName(method->output_type());
       printer->Print(vars,
-        "return client.getClientHandler().callMethod(\n"
+        "return client.call(\n"
         "  getDescriptor().getMethods().get($index$),\n"
         "  request,\n"
         "  $output$.getDefaultInstance());\n");

@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ServiceRegistry {
+	// <Service Id / Service FullName> to <Service> map
 	private Map<String, Service> serviceMap = new ConcurrentHashMap<String, Service>();
 
 	public Service get(String serviceId) {

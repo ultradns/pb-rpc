@@ -20,17 +20,23 @@ public class RpcClientFactory {
 	}
 	
 	public RpcClient createRpcClient(String host, int port) {
-		RpcClient client = new RpcClient();
+		RemoteRpcClient client = new RemoteRpcClient();
 		client.setCallerId(callerId);
 		client.start(host, port);
 		return client;
 	}
 	
 	public RpcClient createRpcClient(ChannelFactory clientChannelFactory, SocketAddress address) {
-		RpcClient client = new RpcClient();
+		RemoteRpcClient client = new RemoteRpcClient();
 		client.setCallerId(callerId);
 		client.setChannelFactory(clientChannelFactory);
 		client.start(address);
+		return client;
+	}
+	
+	public RpcClient createLocalRpcClient(LocalRpcServer rpcServer) {
+		LocalRpcClient client = new LocalRpcClient();
+		client.setLocalRpcServer(rpcServer);
 		return client;
 	}
 }
