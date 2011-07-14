@@ -30,11 +30,11 @@ public abstract class RpcClient {
 	
 	public abstract void shutdown();
 	
-	public abstract <T extends Message> Future<T> call(final Descriptors.MethodDescriptor method, 
+	public abstract <T extends Message> Future<T> callMethod(final Descriptors.MethodDescriptor method, 
 			final Message request,
             final T responsePrototype);
 	
-	public abstract <T extends Message> void call(final Descriptors.MethodDescriptor method, 
+	public abstract <T extends Message> void callMethod(final Descriptors.MethodDescriptor method, 
 			final Message request,
             final T responsePrototype,
             final com.google.protobuf.RpcCallback<T> done);

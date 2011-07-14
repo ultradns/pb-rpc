@@ -137,7 +137,7 @@ public final class ExampleServiceMessage {
       public  void getSomething(
           biz.neustar.ultra.service.example.ExampleRequestMessage.ExampleRequest request,
           com.google.protobuf.RpcCallback<biz.neustar.ultra.service.example.ExampleResponseMessage.ExampleResponse> done) {
-        client.call(
+        client.callMethod(
           getDescriptor().getMethods().get(0),
           request,
           biz.neustar.ultra.service.example.ExampleResponseMessage.ExampleResponse.getDefaultInstance(),
@@ -146,7 +146,7 @@ public final class ExampleServiceMessage {
       
       public  java.util.concurrent.Future<biz.neustar.ultra.service.example.ExampleResponseMessage.ExampleResponse> getSomething(
           biz.neustar.ultra.service.example.ExampleRequestMessage.ExampleRequest request) {
-        return client.call(
+        return client.callMethod(
           getDescriptor().getMethods().get(0),
           request,
           biz.neustar.ultra.service.example.ExampleResponseMessage.ExampleResponse.getDefaultInstance());

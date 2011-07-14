@@ -80,14 +80,14 @@ public class RemoteRpcClient extends RpcClient {
 	}
 	
 	@Override
-	public <T extends Message> Future<T> call(MethodDescriptor method,
+	public <T extends Message> Future<T> callMethod(MethodDescriptor method,
 			Message request, T responsePrototype) {
 	
 		return handler.callMethod(method, request, responsePrototype);
 	}
 
 	@Override
-	public <T extends Message> void call(MethodDescriptor method,
+	public <T extends Message> void callMethod(MethodDescriptor method,
 			Message request, T responsePrototype, RpcCallback<T> done) {
 		
 		handler.callMethod(method, request, responsePrototype, done);

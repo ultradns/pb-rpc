@@ -9,6 +9,8 @@
 package biz.neustar.ultra.pbrpc;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import com.google.protobuf.Descriptors.MethodDescriptor;
@@ -17,18 +19,20 @@ import com.google.protobuf.RpcCallback;
 
 public class LocalRpcClient extends RpcClient {
 	private LocalRpcServer rpcServer;
+	private ExecutorService executor = Executors.newCachedThreadPool();
+	
 	@Override
 	public void shutdown() {
-		// TODO Auto-generated method stub
+		executor.shutdownNow();
 	}
 
 	@Override
-	public <T extends Message> Future<T> call(MethodDescriptor method,
+	public <T extends Message> Future<T> callMethod(MethodDescriptor method,
 			Message request, T responsePrototype) {
 
 		final FutureCallback<T> futureCallback = new FutureCallback<T>();
 		try {
-			call(method, request, responsePrototype, futureCallback);
+			callMethod(method, request, responsePrototype, futureCallback);
 		} catch (Throwable ex) {
 			futureCallback.setExecutionException(new ExecutionException(ex));
 		}
@@ -36,9 +40,9 @@ public class LocalRpcClient extends RpcClient {
 	}
 
 	@Override
-	public <T extends Message> void call(final MethodDescriptor method,
+	public <T extends Message> void callMethod(final MethodDescriptor method,
 			final Message request, final T responsePrototype, final RpcCallback<T> done) {
-		Thread rpcCall = new Thread(new Runnable() {
+		executor.execute(new Runnable() {
 			@Override
 			public void run() {
 				Service service = rpcServer.getServiceRegistry().get(method.getService().getFullName());
@@ -47,7 +51,6 @@ public class LocalRpcClient extends RpcClient {
 				done.run(response);
 			}
 		});
-		rpcCall.start();
 	}
 
 	public void setLocalRpcServer(LocalRpcServer rpcServer) {
