@@ -14,9 +14,11 @@ import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.group.ChannelGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcError;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcPayload;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcRequest;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcResponse;
@@ -29,12 +31,14 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
     private static final Logger logger = LoggerFactory.getLogger(RpcServerHandler.class);
     private ServiceRegistry serviceRegistry = new ServiceRegistry();
     private PayloadHelper payloadHelper = new PayloadHelper();
+    private ChannelGroup serverChannels;
     
-    public RpcServerHandler(ServiceRegistry serviceRegistry) {
+    public RpcServerHandler(ServiceRegistry serviceRegistry, ChannelGroup serverChannels) {
     	super();
     	if (serviceRegistry != null) {
     		this.serviceRegistry = serviceRegistry;
     	}
+    	this.serverChannels = serverChannels;
     }
     
     @Override
@@ -50,6 +54,10 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
     	RpcRequest rpcReq = (RpcRequest) e.getMessage();
     	Service service = serviceRegistry.get(rpcReq.getServiceId());
     	
+    	RpcResponse.Builder rpcResponse = RpcResponse.newBuilder()
+    		.setRequestId(rpcReq.getRequestId())
+    		.setTraceId(rpcReq.getTraceId());
+    	
     	if (service != null) {
     		MethodDescriptor method = service.getDescriptorForType().findMethodByName(rpcReq.getMethodName());
     		Message reqMsg = service.getRequestPrototype(method);
@@ -58,24 +66,26 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
 				Message result = service.callMethod(method, 
 						reqMsg.newBuilderForType().mergeFrom(rpcReq.getPayload().getData()).build());
 				
-				RpcResponse.Builder rpcResponse = RpcResponse.newBuilder();
-				rpcResponse.setRequestId(rpcReq.getRequestId());
 				RpcPayload.Builder payload = RpcPayload.newBuilder();
 				payload.setData(result.toByteString());
 				payloadHelper.setCrc(payload);
 				rpcResponse.setPayload(payload);
-				e.getChannel().write(rpcResponse.build());
+				
 			} catch (InvalidProtocolBufferException e1) {
-				// TODO: send back the error
+				RpcError.Builder error = RpcError.newBuilder()
+	    			.setType(RpcError.Type.BAD_REQUEST)
+	    			.setMessage(String.format("Service (%s) Unknown", rpcReq.getServiceId()));
+	    		rpcResponse.setError(error);			
 			}
-
     	} else {
-    		
+    		RpcError.Builder error = RpcError.newBuilder()
+    			.setType(RpcError.Type.BAD_REQUEST)
+    			.setMessage(String.format("Service (%s) Unknown", rpcReq.getServiceId()));
+    		rpcResponse.setError(error);
     	}
-    	
-    	//rpcReq.getRequestId()
-
+    	e.getChannel().write(rpcResponse.build());
     }
+   
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
@@ -83,4 +93,9 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
         e.getChannel().close();
     }
 
+    @Override
+    public void channelConnected(ChannelHandlerContext ctx, ChannelStateEvent e)
+            throws Exception {
+    	serverChannels.add(ctx.getChannel());
+    }
 }

@@ -34,8 +34,4 @@ public abstract class RpcClient {
 			final Message request,
             final T responsePrototype);
 	
-	public abstract <T extends Message> void callMethod(final Descriptors.MethodDescriptor method, 
-			final Message request,
-            final T responsePrototype,
-            final com.google.protobuf.RpcCallback<T> done);
 }

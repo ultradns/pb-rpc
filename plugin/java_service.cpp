@@ -217,9 +217,6 @@ void ServiceGenerator::GenerateNonBlockingInterface(io::Printer* printer) {
   printer->Print("\n");
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor* method = descriptor_->method(i);
-    // callback version
-    GenerateClientCallbackMethodSignature(printer, method, IS_ABSTRACT);
-    printer->Print(";\n\n");
     // Future version
     GenerateClientFutureMethodSignature(printer, method, IS_ABSTRACT);
     printer->Print(";\n");
@@ -258,45 +255,24 @@ void ServiceGenerator::GenerateStub(io::Printer* printer) {
 
   for (int i = 0; i < descriptor_->method_count(); i++) {
     const MethodDescriptor* method = descriptor_->method(i);
-    printer->Print("\n");
-    {
-      // Callback Version of the method
-      GenerateClientCallbackMethodSignature(printer, method, IS_CONCRETE);
-      printer->Print(" {\n");
-      printer->Indent();
-
-      map<string, string> vars;
-      vars["index"] = SimpleItoa(i);
-      vars["output"] = ClassName(method->output_type());
-      printer->Print(vars,
-        "client.callMethod(\n"
-        "  getDescriptor().getMethods().get($index$),\n"
-        "  request,\n"
-        "  $output$.getDefaultInstance(),\n"
-        "  done);\n");
-
-      printer->Outdent();
-      printer->Print("}\n");
-    }
     printer->Print("\n");    
-    {
-      // Future Version of the method
-      GenerateClientFutureMethodSignature(printer, method, IS_CONCRETE);
-      printer->Print(" {\n");
-      printer->Indent();
 
-      map<string, string> vars;
-      vars["index"] = SimpleItoa(i);
-      vars["output"] = ClassName(method->output_type());
-      printer->Print(vars,
-        "return client.callMethod(\n"
-        "  getDescriptor().getMethods().get($index$),\n"
-        "  request,\n"
-        "  $output$.getDefaultInstance());\n");
+    // Future Version of the method
+    GenerateClientFutureMethodSignature(printer, method, IS_CONCRETE);
+    printer->Print(" {\n");
+    printer->Indent();
 
-      printer->Outdent();
-      printer->Print("}\n");
-    }
+    map<string, string> vars;
+    vars["index"] = SimpleItoa(i);
+    vars["output"] = ClassName(method->output_type());
+    printer->Print(vars,
+      "return client.callMethod(\n"
+      "  getDescriptor().getMethods().get($index$),\n"
+      "  request,\n"
+      "  $output$.getDefaultInstance());\n");
+
+    printer->Outdent();
+    printer->Print("}\n");
   }
 
   printer->Outdent();
@@ -319,19 +295,6 @@ void ServiceGenerator::GenerateMethodSignature(io::Printer* printer,
     "    $input$ request)");
 }
 
-void ServiceGenerator::GenerateClientCallbackMethodSignature(io::Printer* printer,
-                                                             const MethodDescriptor* method,
-                                                             IsAbstract is_abstract) {
-  map<string, string> vars;
-  vars["name"] = UnderscoresToCamelCase(method);
-  vars["input"] = ClassName(method->input_type());
-  vars["output"] = ClassName(method->output_type());
-  vars["abstract"] = (is_abstract == IS_ABSTRACT) ? "abstract" : "";
-  printer->Print(vars,
-    "public $abstract$ void $name$(\n"
-    "    $input$ request,\n"
-    "    com.google.protobuf.RpcCallback<$output$> done)");
-}
 
 void ServiceGenerator::GenerateClientFutureMethodSignature(io::Printer* printer,
                                                            const MethodDescriptor* method,

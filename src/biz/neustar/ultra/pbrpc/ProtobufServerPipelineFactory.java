@@ -12,6 +12,7 @@ import static org.jboss.netty.channel.Channels.pipeline;
 
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.group.ChannelGroup;
 import org.jboss.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
@@ -19,10 +20,13 @@ import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepend
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcRequest;
 
 public class ProtobufServerPipelineFactory implements ChannelPipelineFactory {
-	private ServiceRegistry serviceRegistry = new ServiceRegistry();;
+	private ServiceRegistry serviceRegistry = new ServiceRegistry();
+	private ChannelGroup serverChannels;
 	
-	public ProtobufServerPipelineFactory(ServiceRegistry serviceRegistry) {
+	public ProtobufServerPipelineFactory(ServiceRegistry serviceRegistry, 
+			ChannelGroup serverChannels) {
 		this.serviceRegistry = serviceRegistry;
+		this.serverChannels = serverChannels;
 	}
 	
 	@Override
@@ -32,7 +36,7 @@ public class ProtobufServerPipelineFactory implements ChannelPipelineFactory {
         p.addLast("protobufDecoder", new ProtobufDecoder(RpcRequest.getDefaultInstance()));
 
         p.addLast("frameEncoder", new ProtobufVarint32LengthFieldPrepender());
-        p.addLast("rpcHandler", new RpcServerHandler(serviceRegistry));
+        p.addLast("rpcHandler", new RpcServerHandler(serviceRegistry, serverChannels));
         return p;
 	}
 

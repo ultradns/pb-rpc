@@ -8,16 +8,14 @@
 
 package biz.neustar.ultra.pbrpc;
 
-import static org.jboss.netty.channel.Channels.*;
+import static org.jboss.netty.channel.Channels.pipeline;
 
-import org.jboss.netty.channel.ChannelHandler;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 
-import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcRequest;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcResponse;
 
 public class ProtobufClientPipelineFactory implements ChannelPipelineFactory {

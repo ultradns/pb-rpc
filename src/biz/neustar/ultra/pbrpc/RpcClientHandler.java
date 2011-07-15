@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 import org.jboss.netty.channel.Channel;
@@ -41,9 +42,9 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
 	private Random rand = new Random();
 	private static final int MAX_CALLBACKS = 5000; // what's reasonable?
 	// this could grow unbounded, need an LRU
-	private Map<Long, com.google.protobuf.RpcCallback<RpcResponse>> callbackMap = 
+	private Map<Long, FutureCallback<?, RpcResponse>> callbackMap = 
 		Collections.synchronizedMap(
-				new LinkedHashMap<Long, com.google.protobuf.RpcCallback<RpcResponse>>(MAX_CALLBACKS, .75F, false));
+				new LinkedHashMap<Long, FutureCallback<?, RpcResponse>>(MAX_CALLBACKS, .75F, false));
 	
 	
 	
@@ -52,21 +53,12 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
 	}
 	
 	
-	public <T extends Message> Future<T> callMethod(Descriptors.MethodDescriptor method, 
-			Message request,
-            T responsePrototype) {
+	public <T extends Message> Future<T> callMethod(final Descriptors.MethodDescriptor method, 
+			final Message request,
+            final T responsePrototype) {
 
-		final FutureCallback<T> futureCallback = new FutureCallback<T>();
-		callMethod(method, request, responsePrototype, futureCallback);
-		return futureCallback;
-	}
-
-	
-	public <T extends Message> void callMethod(Descriptors.MethodDescriptor method, 
-			Message request,
-            final T responsePrototype,
-            final com.google.protobuf.RpcCallback<T> done) {
-
+		
+		// setup the request
 		RpcRequest.Builder reqBuilder = RpcRequest.newBuilder();
 		reqBuilder.setCallerId(callerId);
 		reqBuilder.setMethodName(method.getName());
@@ -78,22 +70,27 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
 		payloadHelper.setCrc(payloadBuilder);
 		reqBuilder.setPayload(payloadBuilder.build());
 		
-		// create an adapter to convert from the RpcRequest to the actual message.
-		callbackMap.put(reqBuilder.getRequestId(), 
-			new com.google.protobuf.RpcCallback<RpcResponse>() {
-				@SuppressWarnings("unchecked")
-				@Override
-				public void run(RpcResponse rpcResp) {
+		final FutureCallback<T, RpcResponse> futureCallback = new FutureCallback<T, RpcResponse>() {
+			@SuppressWarnings("unchecked")
+			@Override
+			public T run(RpcResponse rpcResp) throws ExecutionException {
+				if (rpcResp.hasError()) {
+					throw new ExecutionException(rpcResp.getError().getMessage(), 
+							new RuntimeException(rpcResp.getError().getType().toString()));
+				} else if (payloadHelper.verify(rpcResp.getPayload())) {
 					try {
-						done.run((T) responsePrototype.toBuilder().mergeFrom(
-								rpcResp.getPayload().getData()).build());
+						return (T) responsePrototype.toBuilder().mergeFrom(
+								rpcResp.getPayload().getData()).build();
 					} catch (InvalidProtocolBufferException e) {
-						throw new RuntimeException(e);
+						throw new ExecutionException(e);
 					}
 				}
-		});
-
+				return null;
+			}
+		};
+		callbackMap.put(reqBuilder.getRequestId(), futureCallback);
 		channel.write(reqBuilder.build());
+		return futureCallback;
 	}
 	
 	@Override
@@ -118,9 +115,9 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
     	
     	RpcResponse response = (RpcResponse) e.getMessage();
     	if (callbackMap.containsKey(response.getRequestId())) {
-	    	com.google.protobuf.RpcCallback<RpcResponse> callback = callbackMap.get(response.getRequestId());
-	    	if (callback != null && payloadHelper.verify(response.getPayload())) {
-	    		callback.run(response);
+	    	FutureCallback<?, RpcResponse> callback = callbackMap.get(response.getRequestId());
+	    	if (callback != null) {
+	    		callback.process(response);
 	    	}
 	    	callbackMap.remove(response.getRequestId());
     	}

@@ -19,10 +19,8 @@ import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.MethodDescriptor;
 import com.google.protobuf.Message;
-import com.google.protobuf.RpcCallback;
 
 public class RemoteRpcClient extends RpcClient {
 	private String callerId = null;
@@ -84,12 +82,5 @@ public class RemoteRpcClient extends RpcClient {
 			Message request, T responsePrototype) {
 	
 		return handler.callMethod(method, request, responsePrototype);
-	}
-
-	@Override
-	public <T extends Message> void callMethod(MethodDescriptor method,
-			Message request, T responsePrototype, RpcCallback<T> done) {
-		
-		handler.callMethod(method, request, responsePrototype, done);
 	}
 }

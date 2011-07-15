@@ -8,14 +8,16 @@
 
 package biz.neustar.ultra.pbrpc;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcResponse;
+
 import com.google.protobuf.Descriptors.MethodDescriptor;
 import com.google.protobuf.Message;
-import com.google.protobuf.RpcCallback;
 
 public class LocalRpcClient extends RpcClient {
 	private LocalRpcServer rpcServer;
@@ -27,28 +29,19 @@ public class LocalRpcClient extends RpcClient {
 	}
 
 	@Override
-	public <T extends Message> Future<T> callMethod(MethodDescriptor method,
-			Message request, T responsePrototype) {
+	public <T extends Message> Future<T> callMethod(final MethodDescriptor method,
+			final Message request, final T responsePrototype) {
 
-		final FutureCallback<T> futureCallback = new FutureCallback<T>();
-		try {
-			callMethod(method, request, responsePrototype, futureCallback);
-		} catch (Throwable ex) {
-			futureCallback.setExecutionException(new ExecutionException(ex));
-		}
-		return futureCallback;
-	}
-
-	@Override
-	public <T extends Message> void callMethod(final MethodDescriptor method,
-			final Message request, final T responsePrototype, final RpcCallback<T> done) {
-		executor.execute(new Runnable() {
+		return executor.submit(new Callable<T>(){
+			@SuppressWarnings("unchecked")
 			@Override
-			public void run() {
-				Service service = rpcServer.getServiceRegistry().get(method.getService().getFullName());
-				@SuppressWarnings("unchecked")
-				T response = (T) service.callMethod(method, request);
-				done.run(response);
+			public T call() throws Exception {
+				try {
+					Service service = rpcServer.getServiceRegistry().get(method.getService().getFullName());
+					return (T) service.callMethod(method, request);
+				} catch (Throwable ex) {
+					throw new ExecutionException(ex);
+				}
 			}
 		});
 	}

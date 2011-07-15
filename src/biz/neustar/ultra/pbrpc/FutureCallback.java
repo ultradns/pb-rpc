@@ -14,28 +14,41 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import com.google.protobuf.RpcCallback;
+import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcResponse;
 
-public class FutureCallback<T> implements Future<T>, RpcCallback<T> {
+public abstract class FutureCallback<T, P> implements Future<T> {
 	private volatile boolean done = false;
-	private ArrayBlockingQueue<T> value = new ArrayBlockingQueue<T>(1);
-	private volatile ExecutionException executionException = null;
+	private volatile boolean cancelled = false;
 	
-	public void setExecutionException(ExecutionException executionException) {
-		if (executionException != null) {
+	private static class Result<V> {
+		Result(V value) {
+			this.value = value;
+		}
+		Result(ExecutionException executionException) {
 			this.executionException = executionException;
-			if (value.isEmpty()) {
-				run(null); // release anyone waiting
-			}
+		}
+		V value = null;
+		ExecutionException executionException = null;
+	}
+	
+	private ArrayBlockingQueue<Result<T>> value = new ArrayBlockingQueue<Result<T>>(1);
+	
+	
+	public abstract T run(P parameter) throws ExecutionException;
+	
+	protected void process(P parameter) {
+		Result<T> result = new Result<T>(new ExecutionException(new RuntimeException("Unknown Problem")));
+		try {
+			result = new Result<T>(run(parameter));
+		} catch (ExecutionException executionException) {
+			result = new Result<T>(executionException);
+		} finally {
+			done = true;
+			value.offer(result);
 		}
 	}
-	
-	@Override
-	public void run(T parameter) {
-		value.offer(parameter);
-		done = true;
-	}
 
+	
 	@Override
 	public boolean cancel(boolean mayInterruptIfRunning) {
 		throw new UnsupportedOperationException();
@@ -43,7 +56,7 @@ public class FutureCallback<T> implements Future<T>, RpcCallback<T> {
 
 	@Override
 	public boolean isCancelled() {
-		return false;
+		return cancelled;
 	}
 
 	@Override
@@ -51,21 +64,16 @@ public class FutureCallback<T> implements Future<T>, RpcCallback<T> {
 		return done;
 	}
 	
-	protected void checkForExecException() throws ExecutionException {
-		ExecutionException execException = executionException;
-		if (execException != null) {
-			throw execException;
-		}
-	}
 
 	@Override
 	public T get() throws InterruptedException, ExecutionException {
-		checkForExecException();
 		synchronized(this) {
-			T val = value.take();
-			value.offer(val);
-			checkForExecException();
-			return val;
+			Result<T> result = value.take();
+			value.offer(result);
+			if (result.executionException != null) {
+				throw result.executionException;
+			}
+			return result.value;
 		}
 	}
 
@@ -75,12 +83,13 @@ public class FutureCallback<T> implements Future<T>, RpcCallback<T> {
 	@Override
 	public T get(long timeout, TimeUnit unit) 
 			throws InterruptedException, ExecutionException, TimeoutException {
-		checkForExecException();
 		synchronized(this) {
-			T val = value.poll(timeout, unit);
-			value.offer(val);
-			checkForExecException();
-			return val;
+			Result<T> result = value.poll(timeout, unit);
+			value.offer(result);
+			if (result.executionException != null) {
+				throw result.executionException;
+			}
+			return result.value;
 		}
 	}
 }

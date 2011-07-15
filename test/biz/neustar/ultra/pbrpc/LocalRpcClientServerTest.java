@@ -30,8 +30,6 @@ public class LocalRpcClientServerTest {
 
 	@Test
 	public void testClientServerPath() throws InterruptedException, ExecutionException {
-		ArrayList<SocketAddress> serverAddresses = new ArrayList<SocketAddress>();
-		
 		final LocalRpcServer rpcServer = new LocalRpcServer();
 		rpcServer.registerService(new ExampleServiceImpl());
 	

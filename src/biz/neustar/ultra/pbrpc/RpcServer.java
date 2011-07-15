@@ -11,13 +11,13 @@ package biz.neustar.ultra.pbrpc;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.Executors;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ServerChannelFactory;
+import org.jboss.netty.channel.group.ChannelGroup;
+import org.jboss.netty.channel.group.DefaultChannelGroup;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
 public class RpcServer {
@@ -26,6 +26,7 @@ public class RpcServer {
 	private ServerChannelFactory serverChannelFactory = new NioServerSocketChannelFactory(
             Executors.newCachedThreadPool(), Executors.newCachedThreadPool());
 	private ServerBootstrap bootstrap = null;
+	private ChannelGroup serverChannels = new DefaultChannelGroup();
 	
 	public RpcServer(Integer port) {
 		this.addresses.add(new InetSocketAddress(port));
@@ -48,7 +49,8 @@ public class RpcServer {
 		bootstrap = new ServerBootstrap(serverChannelFactory);
 		
 		// Set up the event pipeline factory.
-	    bootstrap.setPipelineFactory(new ProtobufServerPipelineFactory(serviceRegistry));
+	    bootstrap.setPipelineFactory(
+	    		new ProtobufServerPipelineFactory(serviceRegistry, serverChannels));
 	    bootstrap.setOption("reuseAddress", true);
 	    bootstrap.setOption("child.tcpNoDelay", true);
 	    bootstrap.setOption("child.keepAlive", true);
@@ -57,13 +59,16 @@ public class RpcServer {
 	    for (SocketAddress socketAddress : addresses) { // bind to the given ports
 	    	Channel channel = bootstrap.bind(socketAddress);
 	    	if (!channel.isBound()) {
+	    		shutdown();
 	    		throw new RuntimeException("Not bound correctly to address: " + socketAddress);
 	    	}
+	    	serverChannels.add(channel);
 	    }
 	}
 	
 	public synchronized void shutdown() {
         // Shut down all thread pools to exit.
+		serverChannels.close().awaitUninterruptibly();
 		bootstrap.releaseExternalResources();
 	}
 }

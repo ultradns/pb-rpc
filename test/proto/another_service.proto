@@ -1,0 +1,22 @@
+//
+// Copyright 2000-2011 NeuStar, Inc. All rights reserved.
+// NeuStar, the Neustar logo and related names and logos are registered
+// trademarks, service marks or tradenames of NeuStar, Inc. All other 
+// product names, company names, marks, logos and symbols may be trademarks
+// of their respective owners.  
+//
+
+import "example_request.proto";
+import "example_response.proto";
+
+package service.example;
+option java_package = "biz.neustar.ultra.service.example";
+option java_outer_classname = "AnotherServiceMessage";
+
+// these should be false
+option cc_generic_services = false;
+option java_generic_services = false;
+
+service AnotherService {
+	rpc doSomething(ExampleRequest) returns (ExampleResponse);
+}
