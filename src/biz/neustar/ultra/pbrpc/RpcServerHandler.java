@@ -50,8 +50,8 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
     }
 
     @Override
-    public void messageReceived(ChannelHandlerContext ctx, MessageEvent e) {
-    	RpcRequest rpcReq = (RpcRequest) e.getMessage();
+    public void messageReceived(ChannelHandlerContext ctx, MessageEvent msgEvent) {
+    	RpcRequest rpcReq = (RpcRequest) msgEvent.getMessage();
     	Service service = serviceRegistry.get(rpcReq.getServiceId());
     	
     	RpcResponse.Builder rpcResponse = RpcResponse.newBuilder()
@@ -63,18 +63,25 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
     		Message reqMsg = service.getRequestPrototype(method);
     		
     		try {
-				Message result = service.callMethod(method, 
-						reqMsg.newBuilderForType().mergeFrom(rpcReq.getPayload().getData()).build());
-				
-				RpcPayload.Builder payload = RpcPayload.newBuilder();
-				payload.setData(result.toByteString());
-				payloadHelper.setCrc(payload);
-				rpcResponse.setPayload(payload);
-				
-			} catch (InvalidProtocolBufferException e1) {
+    			Message.Builder builder = reqMsg.newBuilderForType().mergeFrom(rpcReq.getPayload().getData());
+    			if (builder.isInitialized()) {
+					Message result = service.callMethod(method, 
+							builder.build());
+					
+					RpcPayload.Builder payload = RpcPayload.newBuilder();
+					payload.setData(result.toByteString());
+					payloadHelper.setCrc(payload);
+					rpcResponse.setPayload(payload);
+    			} else {
+    				RpcError.Builder error = RpcError.newBuilder()
+	    				.setType(RpcError.Type.BAD_REQUEST)
+	    				.setMessage("Missing required Fields");
+    				rpcResponse.setError(error);
+    			}
+			} catch (InvalidProtocolBufferException ex) {
 				RpcError.Builder error = RpcError.newBuilder()
 	    			.setType(RpcError.Type.BAD_REQUEST)
-	    			.setMessage(String.format("Service (%s) Unknown", rpcReq.getServiceId()));
+	    			.setMessage(String.format("Invalid Protocol Buffer: %s", ex));
 	    		rpcResponse.setError(error);			
 			}
     	} else {
@@ -83,7 +90,7 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
     			.setMessage(String.format("Service (%s) Unknown", rpcReq.getServiceId()));
     		rpcResponse.setError(error);
     	}
-    	e.getChannel().write(rpcResponse.build());
+    	msgEvent.getChannel().write(rpcResponse.build());
     }
    
 

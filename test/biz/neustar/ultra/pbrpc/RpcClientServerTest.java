@@ -9,6 +9,7 @@
 package biz.neustar.ultra.pbrpc;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.*;
 
 import java.net.SocketAddress;
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ import org.junit.Test;
 import biz.neustar.ultra.service.example.AnotherServiceMessage.AnotherService;
 import biz.neustar.ultra.service.example.ExampleRequestMessage.ExampleRequest;
 import biz.neustar.ultra.service.example.ExampleRequestMessage.NestedItem;
+import biz.neustar.ultra.service.example.ExampleResponseMessage;
 import biz.neustar.ultra.service.example.ExampleResponseMessage.ExampleResponse;
 import biz.neustar.ultra.service.example.ExampleServiceMessage.ExampleService;
 
@@ -42,7 +44,6 @@ public class RpcClientServerTest {
 		rpcServer.registerService(new ExampleServiceImpl());
 	
 		rpcServer.start();
-		Thread.sleep(100);
 		
 		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
 				new DefaultLocalClientChannelFactory(), address);
@@ -60,11 +61,12 @@ public class RpcClientServerTest {
 		req.setSomething(something);
 		
 		Future<ExampleResponse> resp = exClient.getSomething(req.build());
-		assertEquals(something + testId, resp.get().getItem());
-		/* */
-		
-		rpcClient.shutdown();
-		rpcServer.shutdown();
+		try {
+			assertEquals(something + testId, resp.get().getItem());
+		} finally {
+			rpcClient.shutdown();
+			rpcServer.shutdown();
+		}
 	}
 	
 	// test non-existant service
@@ -76,7 +78,6 @@ public class RpcClientServerTest {
 		rpcServer.registerService(new ExampleServiceImpl());
 	
 		rpcServer.start();
-		Thread.sleep(100);
 		
 		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
 				new DefaultLocalClientChannelFactory(), address);
@@ -96,6 +97,38 @@ public class RpcClientServerTest {
 		Future<ExampleResponse> resp = exClient.doSomething(req.build());
 		try {
 			assertEquals(something + testId, resp.get().getItem());
+			/* */
+		} finally {
+			rpcClient.shutdown();
+			rpcServer.shutdown();
+		}
+	}
+	
+	@Test
+	public void testInvalidMessage() throws InterruptedException, ExecutionException {
+		final RpcServer rpcServer = new RpcServer(serverAddresses);
+		
+		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
+		rpcServer.registerService(new ExampleServiceImpl());
+	
+		rpcServer.start();
+		
+		RpcClient rpcClient = spy(new RpcClientFactory("test caller id")).createRpcClient(
+				new DefaultLocalClientChannelFactory(), address);
+		
+		// send it the response, which it doesnt expect.
+		ExampleResponse.Builder req = ExampleResponse.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
+		String testId = "TESTING";
+		item.setValue(testId);
+		
+		ExampleResponse methodReq = req.build();
+		Future<ExampleResponse> resp = rpcClient.callMethod(ExampleService.getDescriptor().getMethods().get(0), 
+				methodReq, ExampleResponseMessage.ExampleResponse.getDefaultInstance());
+		
+		try {
+			assertEquals("", resp.get().getItem());
 			/* */
 		} finally {
 			rpcClient.shutdown();
