@@ -8,7 +8,7 @@
 
 package biz.neustar.ultra.pbrpc;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 import java.net.SocketAddress;
@@ -66,6 +66,121 @@ public class RpcClientServerTest {
 		} finally {
 			rpcClient.shutdown();
 			rpcServer.shutdown();
+		}
+	}
+	
+	@Test
+	public void testClientReconnect() throws InterruptedException, ExecutionException {
+		final RpcServer rpcServer = new RpcServer(serverAddresses);
+		
+		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
+		rpcServer.registerService(new ExampleServiceImpl());
+	
+		rpcServer.start();
+		
+		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
+				new DefaultLocalClientChannelFactory(), address);
+		
+		/* */
+		ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
+		
+		ExampleRequest.Builder req = ExampleRequest.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
+		String testId = "TESTING";
+		item.setValue(testId);
+		req.setItem(item);
+		String something = "nothing";
+		req.setSomething(something);
+		
+		Future<ExampleResponse> resp = exClient.getSomething(req.build());
+		try {
+			assertEquals(something + testId, resp.get().getItem());
+		} finally {
+			rpcServer.shutdown();
+		}
+		
+		// restart the server
+		rpcServer.start();
+		
+		Future<ExampleResponse> resp2 = exClient.getSomething(req.build());
+		try {
+			assertEquals(something + testId, resp2.get().getItem());
+		} finally {
+			rpcServer.shutdown();
+			rpcClient.shutdown();
+		}
+	}
+	
+	@Test
+	public void testThreadedClientReconnect() throws InterruptedException, ExecutionException {
+		final RpcServer rpcServer = new RpcServer(serverAddresses);
+		
+		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
+		rpcServer.registerService(new ExampleServiceImpl());
+	
+		rpcServer.start();
+		
+		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
+				new DefaultLocalClientChannelFactory(), address);
+		
+		/* */
+		final ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
+		
+		final ExampleRequest.Builder req = ExampleRequest.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
+		final String testId = "TESTING";
+		item.setValue(testId);
+		req.setItem(item);
+		final String something = "nothing";
+		req.setSomething(something);
+		
+		Future<ExampleResponse> resp = exClient.getSomething(req.build());
+		try {
+			assertEquals(something + testId, resp.get().getItem());
+		} finally {
+			rpcServer.shutdown();
+		}
+		
+		// restart the server
+		rpcServer.start();
+		Thread thread1 = new Thread(new Runnable(){
+			@Override
+			public void run() {
+				Future<ExampleResponse> resp = exClient.getSomething(req.build());
+				try {
+					assertEquals(something + testId, resp.get().getItem());
+				} catch (Exception e) {
+					e.printStackTrace();
+					assertTrue(false);
+				}
+			}			
+		});
+		
+		
+		Thread thread2 = new Thread(new Runnable(){
+			@Override
+			public void run() {
+				Future<ExampleResponse> resp = exClient.getSomething(req.build());
+				try {
+					assertEquals(something + testId, resp.get().getItem());
+				} catch (Exception e) {
+					e.printStackTrace();
+					assertTrue(false);
+				}
+			}			
+		});
+		
+		
+		try {
+			thread1.start();
+			thread2.start();
+			thread1.join();
+			thread2.join();
+		} finally {
+			rpcServer.shutdown();
+			rpcClient.shutdown();
 		}
 	}
 	

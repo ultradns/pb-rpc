@@ -8,6 +8,7 @@
 
 package biz.neustar.ultra.pbrpc;
 
+import java.net.ConnectException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -23,6 +25,8 @@ import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.handler.timeout.ReadTimeoutException;
+import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,18 +40,19 @@ import com.google.protobuf.Message;
 
 public class RpcClientHandler extends SimpleChannelUpstreamHandler {
 	private static final Logger LOGGER = LoggerFactory.getLogger(RpcClient.class);
+	private static final int MAX_CALLBACKS = 5000; // what's reasonable?
+	
 	private volatile Channel channel;
 	private PayloadHelper payloadHelper = new PayloadHelper();
 	private String callerId = UUID.randomUUID().toString();
 	private Random rand = new Random();
-	private static final int MAX_CALLBACKS = 5000; // what's reasonable?
 	// this could grow unbounded, need an LRU
 	private Map<Long, FutureCallback<?, RpcResponse>> callbackMap = 
 		Collections.synchronizedMap(
 				new LinkedHashMap<Long, FutureCallback<?, RpcResponse>>(MAX_CALLBACKS, .75F, false));
 	
 	
-	
+
 	public void setCallerId(String callerId) {
 		this.callerId = callerId;
 	}
@@ -108,7 +113,8 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
         channel = e.getChannel();
         super.channelOpen(ctx, e);
     }
-
+    
+    
     @Override
     public void messageReceived(
             ChannelHandlerContext ctx, final MessageEvent e) {
@@ -122,13 +128,16 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
 	    	callbackMap.remove(response.getRequestId());
     	}
     }
-
+    
+    
     @Override
-    public void exceptionCaught(
-            ChannelHandlerContext ctx, ExceptionEvent e) {
-    	LOGGER.warn(
-                "Unexpected exception from downstream.",
-                e.getCause());
-        e.getChannel().close();
+    public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof ConnectException) {
+            LOGGER.error("Failed to connect: " + cause.getMessage());
+        } else {
+        	LOGGER.error("Channel Exception Caught: ", cause);
+        }
+        ctx.getChannel().close();
     }
 }
