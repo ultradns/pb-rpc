@@ -14,8 +14,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcResponse;
-
 public abstract class FutureCallback<T, P> implements Future<T> {
 	private volatile boolean done = false;
 	private volatile boolean cancelled = false;

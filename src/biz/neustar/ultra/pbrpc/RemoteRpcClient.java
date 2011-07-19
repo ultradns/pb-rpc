@@ -64,7 +64,7 @@ public class RemoteRpcClient extends RpcClient {
 
         // Configure the event pipeline factory.
         bootstrap.setPipelineFactory(
-        		new ProtobufClientPipelineFactory(bootstrap, readTimeout, readTimeoutUnit));
+        		new ProtobufClientPipelineFactory(readTimeout, readTimeoutUnit));
         // set the option so the reconnect can just call connect
         bootstrap.setOption("remoteAddress", address);
         connect();

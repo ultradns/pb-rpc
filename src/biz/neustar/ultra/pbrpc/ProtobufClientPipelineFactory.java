@@ -12,7 +12,6 @@ import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.util.concurrent.TimeUnit;
 
-import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.handler.codec.protobuf.ProtobufDecoder;
@@ -27,11 +26,8 @@ import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcResponse;
 public class ProtobufClientPipelineFactory implements ChannelPipelineFactory {
 	private long readTimeout = 30;
 	private TimeUnit readTimeoutUnit = TimeUnit.SECONDS;
-	private ClientBootstrap bootstrap;
 
-	public ProtobufClientPipelineFactory(ClientBootstrap bootstrap, 
-			long readTimeout, TimeUnit readTimeoutUnit) {
-		this.bootstrap = bootstrap;
+	public ProtobufClientPipelineFactory(long readTimeout, TimeUnit readTimeoutUnit) {
 		this.readTimeout = readTimeout;
 		this.readTimeoutUnit = readTimeoutUnit;
 	}
@@ -39,8 +35,7 @@ public class ProtobufClientPipelineFactory implements ChannelPipelineFactory {
 	/**
 	 * defaults to 30 second read timeout.
 	 */
-	public ProtobufClientPipelineFactory(ClientBootstrap bootstrap) {
-		this.bootstrap = bootstrap;
+	public ProtobufClientPipelineFactory() {
 	}
 	
 	@Override
@@ -52,7 +47,6 @@ public class ProtobufClientPipelineFactory implements ChannelPipelineFactory {
         p.addLast("frameEncoder", new ProtobufVarint32LengthFieldPrepender());
         Timer timer = new HashedWheelTimer();
         p.addLast("timeout", new ReadTimeoutHandler(timer, readTimeout, readTimeoutUnit));
-        //p.addLast("rpcReconnecter", new RpcReconnectHandler(bootstrap, timer));
         p.addLast("rpcHandler", new RpcClientHandler());
 
         return p;
