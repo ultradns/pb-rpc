@@ -65,14 +65,12 @@ public abstract class FutureCallback<T, P> implements Future<T> {
 
 	@Override
 	public T get() throws InterruptedException, ExecutionException {
-		synchronized(this) {
-			Result<T> result = value.take();
-			value.offer(result);
-			if (result.executionException != null) {
-				throw result.executionException;
-			}
-			return result.value;
+		Result<T> result = value.take();
+		value.offer(result);
+		if (result.executionException != null) {
+			throw result.executionException;
 		}
+		return result.value;
 	}
 
 	/**
@@ -80,14 +78,15 @@ public abstract class FutureCallback<T, P> implements Future<T> {
 	 */
 	@Override
 	public T get(long timeout, TimeUnit unit) 
-			throws InterruptedException, ExecutionException, TimeoutException {
-		synchronized(this) {
-			Result<T> result = value.poll(timeout, unit);
-			value.offer(result);
-			if (result.executionException != null) {
-				throw result.executionException;
-			}
-			return result.value;
+			throws InterruptedException, ExecutionException, TimeoutException {		
+		Result<T> result = value.poll(timeout, unit);
+		if (result == null) {
+			throw new TimeoutException();
 		}
+		value.offer(result);
+		if (result.executionException != null) {
+			throw result.executionException;
+		}
+		return result.value;
 	}
 }

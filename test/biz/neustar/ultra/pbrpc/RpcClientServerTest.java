@@ -15,11 +15,15 @@ import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.jboss.netty.channel.local.DefaultLocalClientChannelFactory;
 import org.jboss.netty.channel.local.DefaultLocalServerChannelFactory;
 import org.jboss.netty.channel.local.LocalAddress;
 import org.junit.Test;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import biz.neustar.ultra.service.example.AnotherServiceMessage.AnotherService;
 import biz.neustar.ultra.service.example.ExampleRequestMessage.ExampleRequest;
@@ -228,7 +232,7 @@ public class RpcClientServerTest {
 	
 		rpcServer.start();
 		
-		RpcClient rpcClient = spy(new RpcClientFactory("test caller id")).createRpcClient(
+		RpcClient rpcClient = new RpcClientFactory("test caller id").createRpcClient(
 				new DefaultLocalClientChannelFactory(), address);
 		
 		// send it the response, which it doesnt expect.
@@ -247,6 +251,48 @@ public class RpcClientServerTest {
 			/* */
 		} finally {
 			rpcClient.shutdown();
+			rpcServer.shutdown();
+		}
+	}
+	
+	
+	@Test(expected=TimeoutException.class)
+	public void testCallTimeout() throws InterruptedException, ExecutionException, TimeoutException {
+		final RpcServer rpcServer = new RpcServer(serverAddresses);
+		
+		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
+		ExampleService service = mock(ExampleServiceImpl.class);
+		when(service.getSomething(any(ExampleRequest.class))).thenAnswer(new Answer<ExampleResponse>() {
+		     public ExampleResponse answer(InvocationOnMock invocation) throws Throwable {
+		    	 TimeUnit.SECONDS.sleep(1);
+		         return ExampleResponse.newBuilder().build();
+		     }
+		 });
+		rpcServer.registerService(service);
+	
+		rpcServer.start();
+		
+		RemoteRpcClient rpcClient = new RemoteRpcClient();
+		rpcClient.setCallerId("test caller id");
+		rpcClient.setChannelFactory(new DefaultLocalClientChannelFactory());
+		rpcClient.setReadTimeout(2, TimeUnit.MILLISECONDS);
+		rpcClient.start(address);
+		
+		ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
+		ExampleRequest.Builder req = ExampleRequest.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
+		String testId = "TESTING";
+		item.setValue(testId);
+		req.setItem(item);
+		String something = "nothing";
+		req.setSomething(something);
+		
+		Future<ExampleResponse> resp = exClient.getSomething(req.build());
+		try {
+			resp.get(1, TimeUnit.MILLISECONDS);
+		} finally {
+			rpcClient.shutdown();			
 			rpcServer.shutdown();
 		}
 	}
