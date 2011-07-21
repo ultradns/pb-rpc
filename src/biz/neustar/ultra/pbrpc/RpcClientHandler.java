@@ -12,6 +12,7 @@ import java.net.ConnectException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -28,6 +29,7 @@ import org.jboss.netty.handler.timeout.ReadTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcError;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcPayload;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcRequest;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcResponse;
@@ -110,6 +112,25 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
         super.channelOpen(ctx, e);
     }
     
+    @Override
+    public void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e)
+    		throws Exception {
+    	
+    	if (!callbackMap.isEmpty()) {
+    		// we have potentially hanging clients.. free them from infinite wait
+    		for (Entry<Long, FutureCallback<?, RpcResponse>> callback : callbackMap.entrySet()) {
+    			callback.getValue().process(
+    					RpcResponse.newBuilder()
+    						.setError(
+    							RpcError.newBuilder()
+    								.setType(RpcError.Type.NOT_DELIVERED)
+    								.setMessage("Channel Closed")
+    								.build())
+    						.build());
+    			callbackMap.remove(callback.getKey());
+    		}
+    	}
+    }
     
     @Override
     public void messageReceived(

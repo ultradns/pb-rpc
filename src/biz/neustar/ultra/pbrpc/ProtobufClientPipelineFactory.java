@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.handler.codec.protobuf.ProtobufDecoder;
+import org.jboss.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import org.jboss.netty.handler.timeout.ReadTimeoutHandler;
@@ -45,6 +46,7 @@ public class ProtobufClientPipelineFactory implements ChannelPipelineFactory {
         p.addLast("protobufDecoder", new ProtobufDecoder(RpcResponse.getDefaultInstance()));
 
         p.addLast("frameEncoder", new ProtobufVarint32LengthFieldPrepender());
+        p.addLast("protobufEncoder", new ProtobufEncoder());
         Timer timer = new HashedWheelTimer();
         p.addLast("timeout", new ReadTimeoutHandler(timer, readTimeout, readTimeoutUnit));
         p.addLast("rpcHandler", new RpcClientHandler());

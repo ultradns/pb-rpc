@@ -13,6 +13,8 @@ import static org.mockito.Mockito.*;
 
 import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +40,8 @@ import biz.neustar.ultra.service.example.ExampleServiceMessage.ExampleService;
 public class RpcClientServerTest {
 	static final LocalAddress address = new LocalAddress("1");
 	static final ArrayList<SocketAddress> serverAddresses = new ArrayList<SocketAddress>();
-	
+	static final int port = 9697;
+	static final String localHost = "127.0.0.1";
 	static {
 		serverAddresses.add(address);
 	}
@@ -72,7 +75,81 @@ public class RpcClientServerTest {
 			assertEquals(something + testId, resp.get().getItem());
 			// no stats so these should be empty
 			assertEquals((Long) 0L, rpcServer.getStatsBean().getGeneralErrorCount());
-			assertCallStats(rpcServer, 0L, 0L, 0L, "service.example.ExampleService.getSomething");
+			assertCallStats(rpcServer, null, null, null, "service.example.ExampleService.getSomething");
+		} finally {
+			rpcClient.shutdown();
+			rpcServer.shutdown();
+		}
+	}
+	
+	@Test
+	public void testFullClientServerPath() throws InterruptedException, ExecutionException {
+		final RpcServer rpcServer = new RpcServer(port);
+		rpcServer.registerService(new ExampleServiceImpl());
+		rpcServer.start();
+		
+		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(localHost, port);
+		
+		/* */
+		ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
+		
+		ExampleRequest.Builder req = ExampleRequest.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
+		String testId = "TESTING";
+		item.setValue(testId);
+		req.setItem(item);
+		String something = "nothing";
+		req.setSomething(something);
+		
+		Future<ExampleResponse> resp = exClient.getSomething(req.build());
+		try {
+			assertEquals(something + testId, resp.get().getItem());
+			// no stats so these should be empty
+			assertEquals((Long) 0L, rpcServer.getStatsBean().getGeneralErrorCount());
+			assertCallStats(rpcServer, null, null, null, "service.example.ExampleService.getSomething");
+		} finally {
+			rpcClient.shutdown();
+			rpcServer.shutdown();
+		}
+	}
+	
+	@Test(expected=ExecutionException.class)
+	public void testClientNoHangOnClose() throws InterruptedException, ExecutionException {
+		final RpcServer rpcServer = new RpcServer(serverAddresses);
+		
+		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
+		
+		rpcServer.start();
+		
+		final RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
+				new DefaultLocalClientChannelFactory(), address);
+		
+		ExampleService exService = mock(ExampleService.class);
+		when(exService.getSomething(any(ExampleRequest.class))).thenAnswer(new Answer<ExampleResponse>() {
+		     public ExampleResponse answer(InvocationOnMock invocation) throws Throwable {
+		    	 rpcClient.shutdown();
+		    	 return ExampleResponse.newBuilder().setItem("here").build();
+		     }
+		 });
+		rpcServer.registerService(exService);
+		
+		/* */
+		ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
+		
+		ExampleRequest.Builder req = ExampleRequest.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
+		String testId = "TESTING";
+		item.setValue(testId);
+		req.setItem(item);
+		String something = "nothing";
+		req.setSomething(something);
+		
+		Future<ExampleResponse> resp = exClient.getSomething(req.build());
+		try {
+			resp.get().getItem();
+			// no stats so these should be empty
 		} finally {
 			rpcClient.shutdown();
 			rpcServer.shutdown();
@@ -266,26 +343,23 @@ public class RpcClientServerTest {
 	
 	
 	@Test(expected=TimeoutException.class)
-	public void testCallTimeout() throws InterruptedException, ExecutionException, TimeoutException {
-		final RpcServer rpcServer = new RpcServer(serverAddresses);
-		
-		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
+	public void testCallTimeout() throws InterruptedException, ExecutionException, TimeoutException, BrokenBarrierException {
+		final RpcServer rpcServer = new RpcServer(9697);
+		final CyclicBarrier barrier = new CyclicBarrier(2);
 		ExampleService service = mock(ExampleServiceImpl.class);
 		when(service.getSomething(any(ExampleRequest.class))).thenAnswer(new Answer<ExampleResponse>() {
-		     public ExampleResponse answer(InvocationOnMock invocation) throws Throwable {
-		    	 TimeUnit.SECONDS.sleep(1);
-		         return ExampleResponse.newBuilder().build();
-		     }
-		 });
-		rpcServer.registerService(service);
-	
+			public ExampleResponse answer(InvocationOnMock invocation) throws Throwable {
+				barrier.await();
+				return ExampleResponse.newBuilder().build();
+			}
+		});
+		rpcServer.registerService(service);	
 		rpcServer.start();
 		
 		RemoteRpcClient rpcClient = new RemoteRpcClient();
 		rpcClient.setCallerId("test caller id");
-		rpcClient.setChannelFactory(new DefaultLocalClientChannelFactory());
-		rpcClient.setReadTimeout(2, TimeUnit.MILLISECONDS);
-		rpcClient.start(address);
+		rpcClient.setReadTimeout(2, TimeUnit.MINUTES);
+		rpcClient.start("127.0.0.1", 9697);
 		
 		ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
 		ExampleRequest.Builder req = ExampleRequest.newBuilder();
@@ -301,7 +375,54 @@ public class RpcClientServerTest {
 		try {
 			resp.get(1, TimeUnit.MILLISECONDS);
 		} finally {
-			rpcClient.shutdown();			
+			barrier.await();
+			rpcClient.shutdown();
+			rpcServer.shutdown();
+		}
+	}
+	
+	@Test(expected=ExecutionException.class)
+	public void tesServerMethodException() throws InterruptedException, ExecutionException {
+		final RpcServer rpcServer = new RpcServer(serverAddresses);
+		
+		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
+		
+		AnotherService anotherService = mock(AnotherService.class);
+		final String anotherResp = "another";	
+		when(anotherService.doSomething(any(ExampleRequest.class))).thenAnswer(new Answer<ExampleResponse>() {
+		     public ExampleResponse answer(InvocationOnMock invocation) throws Throwable {
+		    	 throw new RuntimeException("nothing");
+		     }
+		 });
+		rpcServer.registerService(anotherService);
+		
+		rpcServer.collectStats();
+		rpcServer.start();
+		
+		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
+				new DefaultLocalClientChannelFactory(), address);
+		
+		/* */
+		
+		ExampleRequest.Builder req = ExampleRequest.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
+		String testId = "TESTING";
+		item.setValue(testId);
+		req.setItem(item);
+		String something = "nothing";
+		req.setSomething(something);
+		
+		AnotherService.Stub exClient2 = AnotherService.newStub(rpcClient);
+		Future<ExampleResponse> resp2 = exClient2.doSomething(req.build());
+		try {
+			assertEquals(anotherResp, resp2.get().getItem());
+		} finally {
+			// make sure there is 1 error
+			assertEquals(1, rpcServer.getStatsBean().getMethodCallCount().size());
+			assertCallStats(rpcServer, 1L, 0L, 1L, "service.example.AnotherService.doSomething");
+			
+			rpcClient.shutdown();
 			rpcServer.shutdown();
 		}
 	}
@@ -347,7 +468,6 @@ public class RpcClientServerTest {
 			assertEquals(2, rpcServer.getStatsBean().getMethodCallCount().size());
 			assertCallStats(rpcServer, 1L, 1L, 0L, "service.example.AnotherService.doSomething");	
 			assertCallStats(rpcServer, 1L, 1L, 0L, "service.example.ExampleService.getSomething");
-TimeUnit.MINUTES.sleep(5);
 		} finally {
 			rpcClient.shutdown();
 			rpcServer.shutdown();

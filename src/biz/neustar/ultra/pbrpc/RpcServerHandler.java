@@ -89,7 +89,8 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
 				rpcResponse.setError(errorBuilder(method.getFullName(), 
 						RpcError.Type.BAD_REQUEST, "Invalid Protocol Buffer: %s", ex));
 			} catch (Exception ex) {
-				rpcResponse.setError(errorBuilder(RpcError.Type.APPLICATION_ERROR, "Method Exception: {}", ex));
+				rpcResponse.setError(errorBuilder(
+						method.getFullName(), RpcError.Type.APPLICATION_ERROR, "Method Exception: %s", ex));
 			}
     	} else {
     		rpcResponse.setError(

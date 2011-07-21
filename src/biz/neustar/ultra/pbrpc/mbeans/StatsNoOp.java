@@ -8,6 +8,8 @@
 
 package biz.neustar.ultra.pbrpc.mbeans;
 
+import biz.neustar.ultra.pbrpc.mbeans.Stats.Timing;
+
 /**
  * no-op version of the stats module.
  * 
@@ -16,7 +18,7 @@ public class StatsNoOp extends Stats {
 
 	public void addGeneralError() { /* no-op */ }
 	
-	public void addMethodCallSuccess(String methodName) { /* no-op */ }
+	public void addMethodCallSuccess(String methodName, Timing timing) { /* no-op */ }
 	
 	public void addMethodCallError(String methodName) { /* no-op */ }
 	

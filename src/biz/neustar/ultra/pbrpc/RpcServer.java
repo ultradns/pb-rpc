@@ -14,6 +14,7 @@ import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
 
+import javax.management.InstanceAlreadyExistsException;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
@@ -75,6 +76,8 @@ public class RpcServer {
 			ObjectName name = new ObjectName("biz.neustar.ultra.pbrpc:type=Stats"); 
 			statsBean = new Stats();
 		    mbs.registerMBean(statsBean, name);
+		} catch (InstanceAlreadyExistsException alreadyRegistered) {
+			LOGGER.debug("Already registering Stats MBean");
 		} catch (Exception e) {
 			LOGGER.error("Problem registering Stats MBean: {}", e);
 		}
