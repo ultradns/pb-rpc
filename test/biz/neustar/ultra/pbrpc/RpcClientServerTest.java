@@ -25,6 +25,9 @@ import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import com.google.protobuf.UnknownFieldSet;
+import com.google.protobuf.UnknownFieldSet.Field;
+
 import biz.neustar.ultra.service.example.AnotherServiceMessage.AnotherService;
 import biz.neustar.ultra.service.example.ExampleRequestMessage.ExampleRequest;
 import biz.neustar.ultra.service.example.ExampleRequestMessage.NestedItem;
@@ -67,6 +70,9 @@ public class RpcClientServerTest {
 		Future<ExampleResponse> resp = exClient.getSomething(req.build());
 		try {
 			assertEquals(something + testId, resp.get().getItem());
+			// no stats so these should be empty
+			assertEquals((Long) 0L, rpcServer.getStatsBean().getGeneralErrorCount());
+			assertCallStats(rpcServer, 0L, 0L, 0L, "service.example.ExampleService.getSomething");
 		} finally {
 			rpcClient.shutdown();
 			rpcServer.shutdown();
@@ -195,7 +201,7 @@ public class RpcClientServerTest {
 		
 		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
 		rpcServer.registerService(new ExampleServiceImpl());
-	
+		rpcServer.collectStats();
 		rpcServer.start();
 		
 		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
@@ -218,6 +224,7 @@ public class RpcClientServerTest {
 			assertEquals(something + testId, resp.get().getItem());
 			/* */
 		} finally {
+			assertEquals((Long) 1L, rpcServer.getStatsBean().getGeneralErrorCount());
 			rpcClient.shutdown();
 			rpcServer.shutdown();
 		}
@@ -242,13 +249,15 @@ public class RpcClientServerTest {
 		String testId = "TESTING";
 		item.setValue(testId);
 		
-		ExampleResponse methodReq = req.build();
+		UnknownFieldSet unknowns = UnknownFieldSet.newBuilder()
+			.addField(255, Field.newBuilder().addFixed32(99).build())
+			.build();
+		ExampleResponse methodReq = req.setUnknownFields(unknowns).build();
 		Future<ExampleResponse> resp = rpcClient.callMethod(ExampleService.getDescriptor().getMethods().get(0), 
 				methodReq, ExampleResponseMessage.ExampleResponse.getDefaultInstance());
 		
 		try {
 			assertEquals("", resp.get().getItem());
-			/* */
 		} finally {
 			rpcClient.shutdown();
 			rpcServer.shutdown();
@@ -296,5 +305,70 @@ public class RpcClientServerTest {
 			rpcServer.shutdown();
 		}
 	}
+
+	@Test
+	public void testClientServerStats() throws InterruptedException, ExecutionException {
+		final RpcServer rpcServer = new RpcServer(serverAddresses);
+		
+		rpcServer.setChannelFactory(new DefaultLocalServerChannelFactory());
+		rpcServer.registerService(new ExampleServiceImpl());
+		
+		AnotherService anotherService = mock(AnotherService.class);
+		final String anotherResp = "another";
+		when(anotherService.doSomething(any(ExampleRequest.class)))
+			.thenReturn(ExampleResponse.newBuilder().setItem(anotherResp).build());
+		rpcServer.registerService(anotherService);
+		
+		rpcServer.collectStats();
+		rpcServer.start();
+		
+		RpcClient rpcClient = (new RpcClientFactory("test caller id")).createRpcClient(
+				new DefaultLocalClientChannelFactory(), address);
+		
+		/* */
+		ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
+		
+		ExampleRequest.Builder req = ExampleRequest.newBuilder();
+		
+		NestedItem.Builder item = NestedItem.newBuilder();
+		String testId = "TESTING";
+		item.setValue(testId);
+		req.setItem(item);
+		String something = "nothing";
+		req.setSomething(something);
+		
+		Future<ExampleResponse> resp = exClient.getSomething(req.build());
+		AnotherService.Stub exClient2 = AnotherService.newStub(rpcClient);
+		Future<ExampleResponse> resp2 = exClient2.doSomething(req.build());
+		try {
+			assertEquals(something + testId, resp.get().getItem());
+			assertEquals(anotherResp, resp2.get().getItem());
+			// make sure there are 2 successes
+			assertEquals(2, rpcServer.getStatsBean().getMethodCallCount().size());
+			assertCallStats(rpcServer, 1L, 1L, 0L, "service.example.AnotherService.doSomething");	
+			assertCallStats(rpcServer, 1L, 1L, 0L, "service.example.ExampleService.getSomething");
+TimeUnit.MINUTES.sleep(5);
+		} finally {
+			rpcClient.shutdown();
+			rpcServer.shutdown();
+		}
+	}
 	
+	protected void assertCallStats(RpcServer rpcServer, Long count, Long successes, Long errors, String methodName) {
+		assertCallCount(rpcServer, count, methodName);
+		assertSuccessCount(rpcServer, successes, methodName);
+		assertErrorCount(rpcServer, errors, methodName);
+	}
+	
+	protected void assertCallCount(RpcServer rpcServer, Long count, String methodName) {
+		assertEquals(count, rpcServer.getStatsBean().getMethodCallCount().get(methodName));
+	}
+	
+	protected void assertErrorCount(RpcServer rpcServer, Long count, String methodName) {
+		assertEquals(count, rpcServer.getStatsBean().getMethodCallErrorCount().get(methodName));
+	}
+	
+	protected void assertSuccessCount(RpcServer rpcServer, Long count, String methodName) {
+		assertEquals(count, rpcServer.getStatsBean().getMethodCallSuccessCount().get(methodName));
+	}
 }

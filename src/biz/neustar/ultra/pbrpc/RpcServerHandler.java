@@ -22,23 +22,27 @@ import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcError;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcPayload;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcRequest;
 import biz.neustar.ultra.pbrpc.generated.RpcMessage.RpcResponse;
+import biz.neustar.ultra.pbrpc.mbeans.Stats;
 
 import com.google.protobuf.Descriptors.MethodDescriptor;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 public class RpcServerHandler extends SimpleChannelUpstreamHandler {
-    private static final Logger logger = LoggerFactory.getLogger(RpcServerHandler.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RpcServerHandler.class);
     private ServiceRegistry serviceRegistry = new ServiceRegistry();
     private PayloadHelper payloadHelper = new PayloadHelper();
     private ChannelGroup serverChannels;
+    private Stats statsBean;
     
-    public RpcServerHandler(ServiceRegistry serviceRegistry, ChannelGroup serverChannels) {
+    public RpcServerHandler(ServiceRegistry serviceRegistry, 
+    		ChannelGroup serverChannels, Stats statsBean) {
     	super();
     	if (serviceRegistry != null) {
     		this.serviceRegistry = serviceRegistry;
     	}
     	this.serverChannels = serverChannels;
+    	this.statsBean = statsBean;
     }
     
     @Override
@@ -51,6 +55,7 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
 
     @Override
     public void messageReceived(ChannelHandlerContext ctx, MessageEvent msgEvent) {
+    	Stats.Timing timing = Stats.Timing.start();
     	RpcRequest rpcReq = (RpcRequest) msgEvent.getMessage();
     	Service service = serviceRegistry.get(rpcReq.getServiceId());
     	
@@ -65,6 +70,9 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
     		try {
     			Message.Builder builder = reqMsg.newBuilderForType().mergeFrom(rpcReq.getPayload().getData());
     			if (builder.isInitialized()) {
+    				if (LOGGER.isDebugEnabled() && builder.getUnknownFields().asMap().size() > 0) {
+    					LOGGER.debug("Unknown Fields found: {}", builder.getUnknownFields().asMap());
+    				}
 					Message result = service.callMethod(method, 
 							builder.build());
 					
@@ -72,31 +80,44 @@ public class RpcServerHandler extends SimpleChannelUpstreamHandler {
 					payload.setData(result.toByteString());
 					payloadHelper.setCrc(payload);
 					rpcResponse.setPayload(payload);
+					statsBean.addMethodCallSuccess(method.getFullName(), timing);
     			} else {
-    				RpcError.Builder error = RpcError.newBuilder()
-	    				.setType(RpcError.Type.BAD_REQUEST)
-	    				.setMessage("Missing required Fields");
-    				rpcResponse.setError(error);
+    				rpcResponse.setError(errorBuilder(method.getFullName(), 
+    						RpcError.Type.BAD_REQUEST, "Missing required Fields"));
     			}
 			} catch (InvalidProtocolBufferException ex) {
-				RpcError.Builder error = RpcError.newBuilder()
-	    			.setType(RpcError.Type.BAD_REQUEST)
-	    			.setMessage(String.format("Invalid Protocol Buffer: %s", ex));
-	    		rpcResponse.setError(error);			
+				rpcResponse.setError(errorBuilder(method.getFullName(), 
+						RpcError.Type.BAD_REQUEST, "Invalid Protocol Buffer: %s", ex));
+			} catch (Exception ex) {
+				rpcResponse.setError(errorBuilder(RpcError.Type.APPLICATION_ERROR, "Method Exception: {}", ex));
 			}
     	} else {
-    		RpcError.Builder error = RpcError.newBuilder()
-    			.setType(RpcError.Type.BAD_REQUEST)
-    			.setMessage(String.format("Service (%s) Unknown", rpcReq.getServiceId()));
-    		rpcResponse.setError(error);
+    		rpcResponse.setError(
+    				errorBuilder(RpcError.Type.BAD_REQUEST, "Service (%s) Unknown", rpcReq.getServiceId()));
     	}
+    	
     	msgEvent.getChannel().write(rpcResponse.build());
     }
    
+    protected RpcError errorBuilder(String methodName, RpcError.Type type, String fmt, Object... args) {
+    	RpcError result = RpcError.newBuilder()
+			.setType(type)
+			.setMessage(String.format(fmt, args)).build();
+    	statsBean.addMethodCallError(methodName);
+    	return result;
+    }
+    
+    protected RpcError errorBuilder(RpcError.Type type, String fmt, Object... args) {
+    	RpcError result = RpcError.newBuilder()
+			.setType(type)
+			.setMessage(String.format(fmt, args)).build();
+    	statsBean.addGeneralError();
+    	return result;
+    }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e) {
-        logger.warn("Unexpected exception from downstream.", e.getCause());
+    	LOGGER.warn("Unexpected exception from downstream.", e.getCause());
         e.getChannel().close();
     }
 

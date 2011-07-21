@@ -24,6 +24,7 @@ import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.handler.timeout.ReadTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,12 +49,10 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
 		Collections.synchronizedMap(
 				new LinkedHashMap<Long, FutureCallback<?, RpcResponse>>(MAX_CALLBACKS, .75F, false));
 	
-	
 
 	public void setCallerId(String callerId) {
 		this.callerId = callerId;
 	}
-	
 	
 	public <T extends Message> Future<T> callMethod(final Descriptors.MethodDescriptor method, 
 			final Message request,
@@ -132,6 +131,8 @@ public class RpcClientHandler extends SimpleChannelUpstreamHandler {
         Throwable cause = e.getCause();
         if (cause instanceof ConnectException) {
             LOGGER.error("Failed to connect: " + cause.getMessage());
+        } else if (cause instanceof ReadTimeoutException) {
+        	LOGGER.info("Connection to client timed out");
         } else {
         	LOGGER.error("Channel Exception Caught: ", cause);
         }

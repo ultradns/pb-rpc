@@ -74,7 +74,7 @@ public abstract class FutureCallback<T, P> implements Future<T> {
 	}
 
 	/**
-	 * @returns the value or null if the specified waiting time elapses before an element is available
+	 * @returns the value or null if no result is available
 	 */
 	@Override
 	public T get(long timeout, TimeUnit unit) 
