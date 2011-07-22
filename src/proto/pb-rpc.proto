@@ -13,12 +13,22 @@ option java_outer_classname = "RpcMessage";
 
 
 message RpcRequest {
+    enum Type {
+        // (default) a method call request type
+        METHOD_CALL = 0;
+        // cancel a method invocation 
+        CANCEL = 1; // todo
+        // gather statistics for a method
+        STATS = 2; // todo
+    }
+    
     optional sint64 request_id = 1;// unique this request / response pair
     optional string caller_id = 2; // id for the caller
     optional string service_id = 3; // id of the service being contacted
     optional sint64 trace_id = 4; // tracing id specified by caller
     optional string method_name = 5; // method name
-    optional RpcPayload payload = 6; // payload of the message
+    optional Type type = 6 [default=METHOD_CALL]; // request type
+    optional RpcPayload payload = 7; // payload of the message
 }
 
 message RpcResponse {
