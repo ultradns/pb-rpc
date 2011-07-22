@@ -69,7 +69,7 @@ Of course the great framework that is [Netty](http://www.jboss.org/netty)
 - Maybe Go and/or python..
 
 ## License ##
-
+<pre>
  Copyright (c) 2011 NeuStar, Inc.
  All rights reserved.
 
@@ -78,5 +78,5 @@ Of course the great framework that is [Netty](http://www.jboss.org/netty)
  You may obtain a copy of the License at
 
      http://www.apache.org/licenses/LICENSE-2.0
+</pre>
 
- 
