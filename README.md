@@ -9,9 +9,11 @@ This library is aimed at simplifying steps needed to expose and use a service us
 ### Compiling proto compiler plugin ###
 
 Environment variables to set:
-PROTOBUF_LIB_DIR=<protobuf lib dir> 
-PROTOBUF_INC_DIR=<protobuf include dir> 
-PROTOBUF_SRC_DIR=<protobuf source dir>
+<pre>
+PROTOBUF_LIB_DIR=&lt;protobuf lib dir&gt;
+PROTOBUF_INC_DIR=&lt;protobuf include dir&gt;
+PROTOBUF_SRC_DIR=&lt;protobuf source dir&gt;
+</pre>
 <pre>  
   make -C plugin 
 </pre>
@@ -36,24 +38,24 @@ public class ExampleServiceImpl extends biz.neustar.ultra.service.example.Exampl
 
 #### Register Service ####
 ```java
-  final RpcServer rpcServer = new RpcServer(8081);
-	rpcServer.registerService(new ExampleServiceImpl());
-	rpcServer.collectStats(); // (optional) collect stats and expose as an MBean
-	rpcServer.start();
-	/// eventually.. 
-	rpcServer.shutdown();
+final RpcServer rpcServer = new RpcServer(8081);
+rpcServer.registerService(new ExampleServiceImpl());
+rpcServer.collectStats(); // (optional) collect stats and expose as an MBean
+rpcServer.start();
+/// eventually.. 
+rpcServer.shutdown();
 ```
 
 ## Client ###
 
 ```java
-  RpcClient rpcClient = (new RpcClientFactory("123")).createRpcClient("127.0.0.1", 8081);
-	ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
-	Future<ExampleResponse> resp = exClient.getSomething(
-	  ExampleRequest.newBuilder().setSomething("nothing").build());
-	resp.get().getItem();
-	// eventually..
-	rpcClient.shutdown();
+final RpcClient rpcClient = (new RpcClientFactory("123")).createRpcClient("127.0.0.1", 8081);
+ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
+Future<ExampleResponse> resp = exClient.getSomething(
+	ExampleRequest.newBuilder().setSomething("nothing").build());
+resp.get().getItem();
+// eventually..
+rpcClient.shutdown();
 ```
 
 ## Credits ##
