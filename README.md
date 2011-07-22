@@ -18,35 +18,35 @@ PROTOBUF_SRC_DIR=<protobuf source dir>
 
 ### Compiling proto files ###
 
-<code>
+<pre>
 protoc --java_out=distdir --java-pb-rpc_out=distdir some_service.proto
-</code>
+</pre>
 
 ### Server ###
 
 #### Create a service implementation ####
-<code>
+```java
 public class ExampleServiceImpl extends biz.neustar.ultra.service.example.ExampleServiceMessage.ExampleService {
 	@Override
 	public ExampleResponse getSomething(ExampleRequest request) {
     return ExampleResponse.newBuilder().setItem("testing").build();
 	}
 }
-</code>
+```
 
 #### Register Service ####
-<code>
+```java
   final RpcServer rpcServer = new RpcServer(8081);
 	rpcServer.registerService(new ExampleServiceImpl());
 	rpcServer.collectStats(); // (optional) collect stats and expose as an MBean
 	rpcServer.start();
 	/// eventually.. 
 	rpcServer.shutdown();
-</code>
+```
 
 ## Client ###
 
-<code>
+```java
   RpcClient rpcClient = (new RpcClientFactory("123")).createRpcClient("127.0.0.1", 8081);
 	ExampleService.Stub exClient = ExampleService.newStub(rpcClient);
 	Future<ExampleResponse> resp = exClient.getSomething(
@@ -54,7 +54,7 @@ public class ExampleServiceImpl extends biz.neustar.ultra.service.example.Exampl
 	resp.get().getItem();
 	// eventually..
 	rpcClient.shutdown();
-</code>
+```
 
 ## Credits ##
 
